@@ -6,7 +6,7 @@ import { validateCreateRestaurant } from "../validators/restaurantValidator.js";
 import {
   authenticateJWT,
   authorizeRoles,
-} from "../middleware/authmiddleware.js";
+} from "../middleware/authMiddleware.js";
 
 const restaurantRouter = express.Router();
 

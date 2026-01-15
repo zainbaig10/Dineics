@@ -4,7 +4,7 @@ import {
   getSettings,
   updateSettings,
 } from "../controllers/settingsController.js";
-import { authenticateJWT } from "../middleware/authmiddleware.js";
+import { authenticateJWT } from "../middleware/authMiddleware.js";
 import { validateUpdateSettings } from "../validators/settingsValidator.js";
 
 const settingsRouter = express.Router();

@@ -16,7 +16,7 @@ import {
   validateInvoiceNumber,
   validateDateRange,
 } from "../validators/orderValidator.js";
-import { authenticateJWT } from "../middleware/authmiddleware.js";
+import { authenticateJWT } from "../middleware/authMiddleware.js";
 const OrderRouter = express.Router();
 OrderRouter.use(authenticateJWT);
 

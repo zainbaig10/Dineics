@@ -19,7 +19,7 @@ import {
 import {
   authenticateJWT,
   authorizeRoles,
-} from "../middleware/authmiddleware.js";
+} from "../middleware/authMiddleware.js";
 
 const userRouter = express.Router();
 
