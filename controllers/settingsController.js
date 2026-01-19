@@ -16,17 +16,13 @@ export const getSettings = async (req, res, next) => {
       });
     }
 
-    let settings = await Settings.findOne({ restaurantId });
-
-    if (!settings) {
-      settings = await Settings.create({ restaurantId });
-    }
+    const settings = await Settings.findOne({ restaurantId });
 
     res.json({
       success: true,
       data: {
         ...settings.toObject(),
-        country: restaurant.country, // READ ONLY
+        country: restaurant.country,
       },
     });
   } catch (err) {
