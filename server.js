@@ -25,7 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
-  "https://dineics.onrender.com",
+  "https://servex-pos.vercel.app",
 ];
 
 app.use(
@@ -38,12 +38,16 @@ app.use(
         return callback(null, true);
       }
 
-      return callback(new Error("Not allowed by CORS"));
+      console.error("❌ Blocked by CORS:", origin);
+      return callback(null, false);
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// ❌ DO NOT USE app.options("*", cors()) in Express 5
 
 // ----------------------
 // Database Connection
@@ -56,7 +60,7 @@ connectDB();
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "OK",
-    service: "Restaurant POS Backend",
+    service: "Dineics POS Backend",
     time: new Date().toISOString(),
   });
 });
@@ -77,7 +81,7 @@ app.use(errorHandler);
 const startServer = () => {
   if (process.env.DEPLOY_ENV === "local") {
     app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+      console.log(`🚀 Server running on port ${PORT}`);
     });
   } else if (process.env.DEPLOY_ENV === "prod") {
     try {
@@ -90,7 +94,7 @@ const startServer = () => {
 
       const httpsServer = https.createServer(options, app);
       httpsServer.listen(PORT, () => {
-        console.log(`HTTPS Server running on port ${PORT}`);
+        console.log(`🔐 HTTPS Server running on port ${PORT}`);
       });
     } catch (error) {
       console.error("Failed to start HTTPS server", error);
