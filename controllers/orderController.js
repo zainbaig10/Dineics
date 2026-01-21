@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { generateInvoiceHTML } from "../utils/invoiceTemplate.js";
 import Restaurant from "../schemas/restaurantSchema.js";
 import Product from "../schemas/productSchema.js";
+import { parsePagination } from "../utils/responseHandlers.js";
 
 export const createOrder = async (req, res) => {
   const { items, paymentMode, taxType, taxRate } = req.body;
@@ -74,15 +75,99 @@ export const createOrder = async (req, res) => {
 };
 
 export const getAllOrders = async (req, res) => {
-  const restaurantId = req.user.restaurantId;
+  try {
+    const restaurantId = new mongoose.Types.ObjectId(
+      req.user.restaurantId
+    );
 
-  const orders = await Order.find({ restaurantId }).sort({ createdAt: -1 });
+    const { page, pageSize, skip } = parsePagination(req.query);
 
-  res.json({
-    success: true,
-    count: orders.length,
-    data: orders,
-  });
+    const {
+      q,
+      status,
+      paymentMode,
+      date,
+      startDate,
+      endDate,
+      sortField = "createdAt",
+      sortOrder = "desc",
+    } = req.query;
+
+    const query = {
+      restaurantId,
+    };
+
+    // -------------------------
+    // Status & Payment filters
+    // -------------------------
+    if (status) query.status = status;
+    if (paymentMode) query.paymentMode = paymentMode;
+
+    // -------------------------
+    // Date filters (createdAt)
+    // -------------------------
+    if (date) {
+      const day = new Date(`${date}T00:00:00.000Z`);
+      const nextDay = new Date(day.getTime() + 86400000);
+
+      query.createdAt = { $gte: day, $lt: nextDay };
+    } else if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(`${startDate}T00:00:00.000Z`);
+      }
+      if (endDate) {
+        query.createdAt.$lt = new Date(
+          new Date(`${endDate}T00:00:00.000Z`).getTime() + 86400000
+        );
+      }
+    }
+
+    // -------------------------
+    // Search
+    // -------------------------
+    if (q) {
+      query.$or = [
+        { invoiceNumber: { $regex: q, $options: "i" } },
+        { "items.name": { $regex: q, $options: "i" } },
+        { paymentMode: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const sort = {
+      [sortField]: sortOrder === "asc" ? 1 : -1,
+    };
+
+    // -------------------------
+    // Query + Count in parallel
+    // -------------------------
+    const [orders, total] = await Promise.all([
+      Order.find(query)
+        .sort(sort)
+        .skip(skip)
+        .limit(pageSize)
+        .exec(),
+
+      Order.countDocuments(query),
+    ]);
+
+    res.json({
+      success: true,
+      data: orders,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    });
+  } catch (err) {
+    console.error("Get orders error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch orders",
+    });
+  }
 };
 
 export const getOrderById = async (req, res) => {
