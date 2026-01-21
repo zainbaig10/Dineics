@@ -3,6 +3,7 @@ import asyncHandler from "express-async-handler";
 import bcrypt from "bcryptjs";
 import User from "../schemas/userSchema.js";
 import { generateToken } from "../utils/jwtUtils.js";
+import Restaurant from "../schemas/restaurantSchema.js";
 
 export const createUser = asyncHandler(async (req, res) => {
   const { name, email, password, role } = req.body;
@@ -51,39 +52,59 @@ export const createUser = asyncHandler(async (req, res) => {
 });
 
 export const login = async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
-  if (!user || !user.isActive) {
-    return res.status(401).json({ msg: "Invalid credentials" });
+    // Find user and populate restaurant details
+    const user = await User.findOne({ email }).populate({
+      path: "restaurantId",
+      select: "name country trn address phone isActive", // fields you want from restaurant
+    });
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({ msg: "Invalid credentials" });
+    }
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).json({ msg: "Invalid credentials" });
+    }
+
+    const token = generateToken(user);
+
+    // Prepare response
+    res.json({
+      success: true,
+      data: {
+        token,
+        role: user.role,
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          restaurant: user.restaurantId || null, // populated restaurant
+        },
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
   }
-
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) {
-    return res.status(401).json({ msg: "Invalid credentials" });
-  }
-
-  const token = generateToken(user);
-
-  res.json({
-    success: true,
-    data: {
-      token,
-      role: user.role,
-    },
-  });
 };
 
 export const resetCashierPassword = async (req, res) => {
-  const { userId, newPassword } = req.body;
+  const { email, newPassword } = req.body; // changed userId -> email
   const { restaurantId, role } = req.user;
 
+  // Only ADMIN can reset cashier passwords
   if (role !== "ADMIN") {
     return res.status(403).json({ msg: "Only admin allowed" });
   }
 
+  // Find cashier by email and restaurant
   const cashier = await User.findOne({
-    _id: userId,
+    email,
     restaurantId,
     role: "CASHIER",
   });
@@ -92,10 +113,11 @@ export const resetCashierPassword = async (req, res) => {
     return res.status(404).json({ msg: "Cashier not found" });
   }
 
+  // Hash new password and save
   cashier.password = await bcrypt.hash(newPassword, 10);
   await cashier.save();
 
-  res.json({ success: true, msg: "Password reset" });
+  res.json({ success: true, msg: "Password reset successfully" });
 };
 
 export const changePassword = async (req, res) => {

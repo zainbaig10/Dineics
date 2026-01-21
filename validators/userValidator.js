@@ -59,11 +59,11 @@ export const validateCreateUser = [
 ];
 
 export const validateResetPassword = [
-  body("userId")
+  body("email")
     .notEmpty()
-    .withMessage("User ID is required")
-    .isMongoId()
-    .withMessage("Invalid user ID"),
+    .withMessage("Email is required")
+    .isEmail()
+    .withMessage("Enter a valid email"),
 
   body("newPassword")
     .notEmpty()
