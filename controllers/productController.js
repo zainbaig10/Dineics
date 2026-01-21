@@ -127,3 +127,21 @@ export const getActiveProducts = async (req, res) => {
 
   res.json({ success: true, data: products });
 };
+
+export const getProductCategories = async (req, res, next) => {
+  try {
+    const { restaurantId } = req.user;
+
+    const categories = await Product.distinct("category", {
+      restaurantId,
+      isActive: true,
+    });
+
+    res.json({
+      success: true,
+      data: categories,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

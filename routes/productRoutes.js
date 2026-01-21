@@ -6,6 +6,7 @@ import {
   updateProduct,
   deleteProduct,
   getActiveProducts,
+  getProductCategories,
 } from "../controllers/productController.js";
 
 import {
@@ -20,6 +21,7 @@ const productRouter = express.Router();
 
 productRouter.use(authenticateJWT);
 
+productRouter.route("/categories").get(getProductCategories);
 // Create
 productRouter
   .route("/create-product")
@@ -41,5 +43,7 @@ productRouter
 
 // Soft delete
 productRouter.route("/:productId").delete(validateProductId, deleteProduct);
+
+
 
 export default productRouter;

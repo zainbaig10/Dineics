@@ -243,67 +243,85 @@ export const getPrintableInvoice = async (req, res) => {
 
 export const getTodayDashboard = async (req, res) => {
   try {
-    const restaurantId = new mongoose.Types.ObjectId(req.user.restaurantId);
+    const restaurantId = new mongoose.Types.ObjectId(
+      req.user.restaurantId
+    );
 
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    // 🔥 Calculate UTC start & end of today
+    const now = new Date();
 
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    const startOfDayUTC = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0, 0, 0, 0
+      )
+    );
+
+    const endOfDayUTC = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        23, 59, 59, 999
+      )
+    );
 
     const result = await Order.aggregate([
       {
         $match: {
           restaurantId,
           createdAt: {
-            $gte: startOfDay,
-            $lte: endOfDay,
+            $gte: startOfDayUTC,
+            $lte: endOfDayUTC,
           },
         },
       },
 
-      // Keep order-level fields safe
+      {
+        $facet: {
+          summary: [
+            {
+              $group: {
+                _id: null,
+                totalOrders: { $sum: 1 },
+                totalSales: { $sum: "$grandTotal" },
+              },
+            },
+          ],
+
+          items: [
+            { $unwind: "$items" },
+            {
+              $group: {
+                _id: null,
+                totalItemsSold: {
+                  $sum: "$items.quantity",
+                },
+                totalProfit: {
+                  $sum: "$items.profit",
+                },
+              },
+            },
+          ],
+        },
+      },
+
       {
         $project: {
-          grandTotal: 1,
-          items: 1,
-        },
-      },
-
-      // Unwind items for item-level calculations
-      { $unwind: "$items" },
-
-      {
-        $group: {
-          _id: null,
-
-          // Each order's grandTotal appears once per item,
-          // so we must avoid double counting
-          totalSales: { $sum: "$items.total" },
-
-          totalProfit: {
-            $sum: {
-              $ifNull: ["$items.profit", 0],
-            },
+          totalOrders: {
+            $ifNull: [{ $arrayElemAt: ["$summary.totalOrders", 0] }, 0],
           },
-
+          totalSales: {
+            $ifNull: [{ $arrayElemAt: ["$summary.totalSales", 0] }, 0],
+          },
           totalItemsSold: {
-            $sum: {
-              $ifNull: ["$items.quantity", 0],
-            },
+            $ifNull: [{ $arrayElemAt: ["$items.totalItemsSold", 0] }, 0],
           },
-
-          orderIds: { $addToSet: "$_id" }, // 👈 unique orders
-        },
-      },
-
-      {
-        $project: {
-          _id: 0,
-          totalSales: 1,
-          totalProfit: 1,
-          totalItemsSold: 1,
-          totalOrders: { $size: "$orderIds" },
+          totalProfit: {
+            $ifNull: [{ $arrayElemAt: ["$items.totalProfit", 0] }, 0],
+          },
         },
       },
     ]);
@@ -318,10 +336,13 @@ export const getTodayDashboard = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error("Dashboard Error:", err);
     res.status(500).json({
       success: false,
-      msg: "Failed to load dashboard",
+      message: "Failed to load dashboard",
     });
   }
 };
+
+
+

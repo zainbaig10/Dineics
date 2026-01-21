@@ -20,6 +20,8 @@ import { authenticateJWT } from "../middleware/authMiddleware.js";
 const OrderRouter = express.Router();
 OrderRouter.use(authenticateJWT);
 
+OrderRouter.route("/dashboard/today").get(authenticateJWT, getTodayDashboard);
+
 OrderRouter.route("/create-order").post(validateCreateOrder, createOrder);
 
 OrderRouter.route("/get-all-orders").get(getAllOrders);
@@ -51,6 +53,6 @@ OrderRouter.route("/:orderId/invoice").get(
   getPrintableInvoice
 );
 
-OrderRouter.route("/today").get(authenticateJWT, getTodayDashboard);
+
 
 export default OrderRouter;
