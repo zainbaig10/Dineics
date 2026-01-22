@@ -35,7 +35,7 @@ userRouter
 
 userRouter
   .route("/change-password")
-  .post(authenticateJWT, validateChangePassword, changePassword);
+  .patch(authenticateJWT, validateChangePassword, changePassword);
 
 userRouter.route("/init-super-admin").post(initSuperAdmin);
 
