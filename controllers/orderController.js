@@ -328,6 +328,13 @@ export const getPrintableInvoice = async (req, res) => {
 
 export const getTodayDashboard = async (req, res) => {
   try {
+    if (!req.user?.restaurantId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
     const restaurantId = new mongoose.Types.ObjectId(
       req.user.restaurantId
     );

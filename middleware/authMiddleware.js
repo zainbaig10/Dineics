@@ -12,15 +12,21 @@ export const authenticateJWT = (req, res, next) => {
 
   try {
     const token = authHeader.split(" ")[1];
-    req.user = verifyToken(token);
+    const decoded = verifyToken(token);
+
+    console.log("🔥 JWT PAYLOAD:", decoded); // 👈 ADD THIS
+
+    req.user = decoded;
     next();
-  } catch {
+  } catch (err) {
+    console.error("JWT ERROR:", err);
     return res.status(401).json({
       success: false,
       msg: "Invalid or expired token",
     });
   }
 };
+
 
 export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
