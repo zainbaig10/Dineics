@@ -70,7 +70,7 @@ export const login = async (req, res) => {
       return res.status(401).json({ msg: "Invalid credentials" });
     }
 
-    // ✅ CLEAN JWT PAYLOAD (ONLY IDS)
+    // ✅ CLEAN JWT PAYLOAD
     const tokenPayload = {
       userId: user._id.toString(),
       role: user.role,
@@ -80,7 +80,6 @@ export const login = async (req, res) => {
 
     const token = generateToken(tokenPayload);
 
-    // ✅ Response can still include populated restaurant
     res.json({
       success: true,
       data: {

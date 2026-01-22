@@ -1,12 +1,12 @@
 import jwt from "jsonwebtoken";
 
-export const generateToken = (user) => {
+export const generateToken = (payload) => {
   return jwt.sign(
     {
-      userId: user._id, // ✅ use userId everywhere
-      role: user.role,
-      restaurantId: user.restaurantId || null,
-      isSuperAdmin: user.role === "SUPER_ADMIN",
+      userId: payload.userId, // ✅ FIXED
+      role: payload.role,
+      restaurantId: payload.restaurantId || null,
+      isSuperAdmin: payload.isSuperAdmin || false,
     },
     process.env.JWT_SECRET,
     { expiresIn: "1y" }
@@ -16,7 +16,7 @@ export const generateToken = (user) => {
 export const verifyToken = (token) => {
   try {
     return jwt.verify(token, process.env.JWT_SECRET);
-  } catch {
+  } catch (err) {
     throw new Error("Invalid token");
   }
 };
