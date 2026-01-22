@@ -55,10 +55,10 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user and populate restaurant details
+    // Find user and populate restaurant (for response only)
     const user = await User.findOne({ email }).populate({
       path: "restaurantId",
-      select: "name country trn address phone isActive", // fields you want from restaurant
+      select: "name country trn address phone isActive",
     });
 
     if (!user || !user.isActive) {
@@ -70,9 +70,17 @@ export const login = async (req, res) => {
       return res.status(401).json({ msg: "Invalid credentials" });
     }
 
-    const token = generateToken(user);
+    // ✅ CLEAN JWT PAYLOAD (ONLY IDS)
+    const tokenPayload = {
+      userId: user._id.toString(),
+      role: user.role,
+      restaurantId: user.restaurantId?._id.toString(),
+      isSuperAdmin: user.isSuperAdmin || false,
+    };
 
-    // Prepare response
+    const token = generateToken(tokenPayload);
+
+    // ✅ Response can still include populated restaurant
     res.json({
       success: true,
       data: {
@@ -83,12 +91,12 @@ export const login = async (req, res) => {
           name: user.name,
           email: user.email,
           role: user.role,
-          restaurant: user.restaurantId || null, // populated restaurant
+          restaurant: user.restaurantId || null,
         },
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 };

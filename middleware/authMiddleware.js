@@ -14,7 +14,11 @@ export const authenticateJWT = (req, res, next) => {
     const token = authHeader.split(" ")[1];
     const decoded = verifyToken(token);
 
-    console.log("🔥 JWT PAYLOAD:", decoded); // 👈 ADD THIS
+    // 🔥 NORMALIZE restaurantId
+    if (decoded.restaurantId && typeof decoded.restaurantId === "object") {
+      decoded.restaurantId =
+        decoded.restaurantId._id || decoded.restaurantId.id;
+    }
 
     req.user = decoded;
     next();
@@ -26,7 +30,6 @@ export const authenticateJWT = (req, res, next) => {
     });
   }
 };
-
 
 export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
