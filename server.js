@@ -1,8 +1,6 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import fs from "fs";
-import https from "https";
 
 import connectDB from "./mongo.js";
 import routes from "./routes/index.js";
@@ -20,7 +18,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ----------------------
-// CORS (EXPRESS 5 SAFE)
+// CORS (SAFE + SIMPLE)
 // ----------------------
 const allowedOrigins = [
   "http://localhost:5173",
@@ -31,23 +29,21 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow Postman / server-to-server
+      // Allow server-to-server / Postman
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      console.error("❌ Blocked by CORS:", origin);
-      return callback(null, false);
+      console.warn("❌ CORS blocked:", origin);
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
-// ❌ DO NOT USE app.options("*", cors()) in Express 5
 
 // ----------------------
 // Database Connection
@@ -76,32 +72,10 @@ app.use("/api", routes);
 app.use(errorHandler);
 
 // ----------------------
-// Server Start
+// Server Start (NO HTTPS HERE)
 // ----------------------
-const startServer = () => {
-  if (process.env.DEPLOY_ENV === "local") {
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
-  } else if (process.env.DEPLOY_ENV === "prod") {
-    try {
-      const options = {
-        cert: fs.readFileSync(process.env.SSL_CRT_PATH),
-        key: fs.readFileSync(process.env.SSL_KEY_PATH),
-      };
-
-      app.set("trust proxy", true);
-
-      const httpsServer = https.createServer(options, app);
-      httpsServer.listen(PORT, () => {
-        console.log(`🔐 HTTPS Server running on port ${PORT}`);
-      });
-    } catch (error) {
-      console.error("Failed to start HTTPS server", error);
-    }
-  }
-};
-
-startServer();
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
 
 export default app;
