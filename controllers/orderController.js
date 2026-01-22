@@ -328,6 +328,9 @@ export const getPrintableInvoice = async (req, res) => {
 
 export const getTodayDashboard = async (req, res) => {
   try {
+    // -------------------------
+    // Auth check
+    // -------------------------
     if (!req.user?.restaurantId) {
       return res.status(401).json({
         success: false,
@@ -339,7 +342,9 @@ export const getTodayDashboard = async (req, res) => {
       req.user.restaurantId
     );
 
-    // 🔥 Calculate UTC start & end of today
+    // -------------------------
+    // UTC-safe today range
+    // -------------------------
     const now = new Date();
 
     const startOfDayUTC = new Date(
@@ -360,7 +365,10 @@ export const getTodayDashboard = async (req, res) => {
       )
     );
 
-    const result = await Order.aggregate([
+    // -------------------------
+    // Aggregation pipeline
+    // -------------------------
+    const pipeline = [
       {
         $match: {
           restaurantId,
@@ -378,21 +386,41 @@ export const getTodayDashboard = async (req, res) => {
               $group: {
                 _id: null,
                 totalOrders: { $sum: 1 },
-                totalSales: { $sum: "$grandTotal" },
+                totalSales: {
+                  $sum: {
+                    $cond: [
+                      { $isNumber: "$grandTotal" },
+                      "$grandTotal",
+                      0,
+                    ],
+                  },
+                },
               },
             },
           ],
 
           items: [
-            { $unwind: "$items" },
+            { $unwind: { path: "$items", preserveNullAndEmptyArrays: true } },
             {
               $group: {
                 _id: null,
                 totalItemsSold: {
-                  $sum: "$items.quantity",
+                  $sum: {
+                    $cond: [
+                      { $isNumber: "$items.quantity" },
+                      "$items.quantity",
+                      0,
+                    ],
+                  },
                 },
                 totalProfit: {
-                  $sum: "$items.profit",
+                  $sum: {
+                    $cond: [
+                      { $isNumber: "$items.profit" },
+                      "$items.profit",
+                      0,
+                    ],
+                  },
                 },
               },
             },
@@ -416,8 +444,24 @@ export const getTodayDashboard = async (req, res) => {
           },
         },
       },
-    ]);
+    ];
 
+    // -------------------------
+    // Execute aggregation safely
+    // -------------------------
+    let result;
+    try {
+      result = await Order.aggregate(pipeline);
+    } catch (aggErr) {
+      console.error("Dashboard aggregation failed");
+      console.error("Pipeline:", JSON.stringify(pipeline, null, 2));
+      console.error("Error:", aggErr);
+      throw aggErr;
+    }
+
+    // -------------------------
+    // Response
+    // -------------------------
     res.json({
       success: true,
       data: result[0] || {
@@ -427,6 +471,7 @@ export const getTodayDashboard = async (req, res) => {
         totalProfit: 0,
       },
     });
+
   } catch (err) {
     console.error("Dashboard Error:", err);
     res.status(500).json({
@@ -435,6 +480,7 @@ export const getTodayDashboard = async (req, res) => {
     });
   }
 };
+
 
 
 
