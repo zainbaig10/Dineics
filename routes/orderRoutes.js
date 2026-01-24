@@ -12,6 +12,7 @@ import {
   cancelOrder,
   requestCancelOrder,
   getRecentOrders,
+  getPaymentModeSales,
 } from "../controllers/orderController.js";
 import {
   validateCreateOrder,
@@ -56,23 +57,18 @@ OrderRouter.route("/:orderId/invoice").get(
   getPrintableInvoice
 );
 
-OrderRouter.route(
-  "/:orderId/cancel").post(
-  authenticateJWT,
-  cancelOrder
-);
+OrderRouter.route("/:orderId/cancel").post(authenticateJWT, cancelOrder);
 
-OrderRouter.route(
-  "/:orderId/request-cancel").post(
+OrderRouter.route("/:orderId/request-cancel").post(
   authenticateJWT,
   requestCancelOrder
 );
 
-OrderRouter.route(
-  "/recent").get(
-  authenticateJWT,
-  getRecentOrders
-);
+OrderRouter.route("/recent").get(authenticateJWT, getRecentOrders);
 
+OrderRouter.route("/payment-mode-sales").get(
+  authenticateJWT,
+  getPaymentModeSales
+);
 
 export default OrderRouter;

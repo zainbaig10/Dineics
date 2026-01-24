@@ -679,4 +679,51 @@ export const getRecentOrders = async (req, res) => {
 };
 
 
+export const getPaymentModeSales = async (req, res) => {
+  try {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
 
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const stats = await Order.aggregate([
+      {
+        $match: {
+          status: "PAID",
+          createdAt: {
+            $gte: startOfDay,
+            $lte: endOfDay,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$paymentMode",
+          totalSales: { $sum: "$grandTotal" },
+        },
+      },
+    ]);
+
+    const result = {
+      CASH: 0,
+      CARD: 0,
+      UPI: 0,
+    };
+
+    stats.forEach((item) => {
+      result[item._id] = item.totalSales;
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Today payment stats error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch today's payment mode stats",
+    });
+  }
+};
