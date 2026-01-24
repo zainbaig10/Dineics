@@ -5,8 +5,7 @@ import {
   getProductById,
   updateProduct,
   deleteProduct,
-  getActiveProducts,
-  getProductCategories,
+  getActiveProducts
 } from "../controllers/productController.js";
 
 import {
@@ -21,7 +20,6 @@ const productRouter = express.Router();
 
 productRouter.use(authenticateJWT);
 
-productRouter.route("/categories").get(getProductCategories);
 // Create
 productRouter
   .route("/create-product")

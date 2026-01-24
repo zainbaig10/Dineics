@@ -1,20 +1,33 @@
+// controllers/productController.js
 import Product from "../schemas/productSchema.js";
 
 /**
  * CREATE PRODUCT
  */
 export const createProduct = async (req, res) => {
-  const restaurantId = req.user.restaurantId;
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { name, categoryId, sellingPrice, costPrice } = req.body;
 
-  const product = await Product.create({
-    ...req.body,
-    restaurantId,
-  });
+    const product = await Product.create({
+      restaurantId,
+      name,
+      categoryId,
+      sellingPrice,
+      costPrice,
+    });
 
-  res.status(201).json({
-    success: true,
-    data: product,
-  });
+    res.status(201).json({
+      success: true,
+      data: product,
+    });
+  } catch (err) {
+    console.error("Create product error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create product",
+    });
+  }
 };
 
 /**
@@ -23,37 +36,34 @@ export const createProduct = async (req, res) => {
 export const getProducts = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const { search, category, isActive } = req.query;
+    const { search, categoryId, isActive } = req.query;
 
-    const query = {
-      restaurantId,
-    };
+    const query = { restaurantId };
 
-    // ---- category filter ----
-    if (category) {
-      query.category = category;
+    if (categoryId) {
+      query.categoryId = categoryId;
     }
 
-    // ---- active / inactive filter ----
     if (typeof isActive !== "undefined") {
       query.isActive = isActive === "true";
     }
 
-    // ---- search by product name ----
     if (search) {
       query.name = { $regex: search, $options: "i" };
     }
 
-    const products = await Product.find(query).sort({ createdAt: -1 });
+    const products = await Product.find(query)
+      .populate("categoryId", "name")
+      .sort({ createdAt: -1 });
 
-    return res.json({
+    res.json({
       success: true,
       count: products.length,
       data: products,
     });
   } catch (error) {
     console.error("Get products error:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Failed to fetch products",
     });
@@ -70,13 +80,19 @@ export const getProductById = async (req, res) => {
   const product = await Product.findOne({
     _id: productId,
     restaurantId,
-  });
+  }).populate("categoryId", "name");
 
   if (!product) {
-    return res.status(404).json({ msg: "Product not found" });
+    return res.status(404).json({
+      success: false,
+      message: "Product not found",
+    });
   }
 
-  res.json({ success: true, data: product });
+  res.json({
+    success: true,
+    data: product,
+  });
 };
 
 /**
@@ -86,17 +102,25 @@ export const updateProduct = async (req, res) => {
   const { productId } = req.params;
   const restaurantId = req.user.restaurantId;
 
+  const { name, categoryId, sellingPrice, costPrice, isActive } = req.body;
+
   const product = await Product.findOneAndUpdate(
     { _id: productId, restaurantId },
-    req.body,
+    { name, categoryId, sellingPrice, costPrice, isActive },
     { new: true }
-  );
+  ).populate("categoryId", "name");
 
   if (!product) {
-    return res.status(404).json({ msg: "Product not found" });
+    return res.status(404).json({
+      success: false,
+      message: "Product not found",
+    });
   }
 
-  res.json({ success: true, data: product });
+  res.json({
+    success: true,
+    data: product,
+  });
 };
 
 /**
@@ -113,12 +137,15 @@ export const deleteProduct = async (req, res) => {
   );
 
   if (!product) {
-    return res.status(404).json({ msg: "Product not found" });
+    return res.status(404).json({
+      success: false,
+      message: "Product not found",
+    });
   }
 
   res.json({
     success: true,
-    msg: "Product disabled successfully",
+    message: "Product disabled successfully",
   });
 };
 
@@ -131,25 +158,12 @@ export const getActiveProducts = async (req, res) => {
   const products = await Product.find({
     restaurantId,
     isActive: true,
-  }).sort({ name: 1 });
+  })
+    .populate("categoryId", "name")
+    .sort({ name: 1 });
 
-  res.json({ success: true, data: products });
-};
-
-export const getProductCategories = async (req, res, next) => {
-  try {
-    const { restaurantId } = req.user;
-
-    const categories = await Product.distinct("category", {
-      restaurantId,
-      isActive: true,
-    });
-
-    res.json({
-      success: true,
-      data: categories,
-    });
-  } catch (err) {
-    next(err);
-  }
+  res.json({
+    success: true,
+    data: products,
+  });
 };

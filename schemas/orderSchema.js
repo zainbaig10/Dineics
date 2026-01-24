@@ -1,4 +1,3 @@
-// models/Order.js
 import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema(
@@ -8,6 +7,12 @@ const orderSchema = new mongoose.Schema(
       ref: "Restaurant",
       required: true,
       index: true,
+    },
+
+    // 🔒 Idempotency key (from frontend)
+    clientOrderId: {
+      type: String,
+      required: true,
     },
 
     invoiceNumber: {
@@ -27,14 +32,11 @@ const orderSchema = new mongoose.Schema(
         sellingPrice: Number,
         costPrice: Number,
         total: Number,
-        profit: Number, // ✅ REQUIRED
+        profit: Number,
       },
     ],
 
-    subtotal: {
-      type: Number,
-      required: true,
-    },
+    subtotal: Number,
 
     taxType: {
       type: String,
@@ -42,15 +44,8 @@ const orderSchema = new mongoose.Schema(
       default: "NONE",
     },
 
-    taxRate: {
-      type: Number,
-      default: 0, // 5, 12, 18 etc
-    },
-
-    taxAmount: {
-      type: Number,
-      default: 0,
-    },
+    taxRate: Number,
+    taxAmount: Number,
 
     grandTotal: {
       type: Number,
@@ -67,7 +62,27 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: ["PAID", "CANCELLED", "REFUNDED", "PENDING"],
       default: "PAID",
+      index: true,
     },
+
+    // 👇 NEW (for cashier flow)
+    cancelRequested: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    cancelRequestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    cancelledAt: Date,
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -75,6 +90,12 @@ const orderSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
+);
+
+// 🔐 No duplicate orders per restaurant
+orderSchema.index(
+  { restaurantId: 1, clientOrderId: 1 },
+  { unique: true }
 );
 
 export default mongoose.model("Order", orderSchema);

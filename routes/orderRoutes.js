@@ -9,6 +9,9 @@ import {
   getSalesSummary,
   getPrintableInvoice,
   getTodayDashboard,
+  cancelOrder,
+  requestCancelOrder,
+  getRecentOrders,
 } from "../controllers/orderController.js";
 import {
   validateCreateOrder,
@@ -53,6 +56,23 @@ OrderRouter.route("/:orderId/invoice").get(
   getPrintableInvoice
 );
 
+OrderRouter.route(
+  "/:orderId/cancel").post(
+  authenticateJWT,
+  cancelOrder
+);
+
+OrderRouter.route(
+  "/:orderId/request-cancel").post(
+  authenticateJWT,
+  requestCancelOrder
+);
+
+OrderRouter.route(
+  "/recent").get(
+  authenticateJWT,
+  getRecentOrders
+);
 
 
 export default OrderRouter;

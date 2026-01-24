@@ -1,7 +1,16 @@
-import { body, param, validationResult } from "express-validator";
+// validators/productValidators.js
+import { body, param, query, validationResult } from "express-validator";
 
 export const validateCreateProduct = [
-  body("name").notEmpty().withMessage("Product name is required"),
+  body("name")
+    .notEmpty()
+    .withMessage("Product name is required"),
+
+  body("categoryId")
+    .notEmpty()
+    .withMessage("Category is required")
+    .isMongoId()
+    .withMessage("Invalid category ID"),
 
   body("sellingPrice")
     .notEmpty()
@@ -18,6 +27,16 @@ export const validateCreateProduct = [
 ];
 
 export const validateUpdateProduct = [
+  body("name")
+    .optional()
+    .notEmpty()
+    .withMessage("Product name cannot be empty"),
+
+  body("categoryId")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid category ID"),
+
   body("sellingPrice")
     .optional()
     .isFloat({ min: 0 })
@@ -28,11 +47,19 @@ export const validateUpdateProduct = [
     .isFloat({ min: 0 })
     .withMessage("Cost price must be >= 0"),
 
+  body("isActive")
+    .optional()
+    .isBoolean()
+    .withMessage("isActive must be boolean"),
+
   handleValidationErrors,
 ];
 
 export const validateProductId = [
-  param("productId").isMongoId().withMessage("Invalid product ID"),
+  param("productId")
+    .isMongoId()
+    .withMessage("Invalid product ID"),
+
   handleValidationErrors,
 ];
 

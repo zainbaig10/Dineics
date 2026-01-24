@@ -8,70 +8,120 @@ import Product from "../schemas/productSchema.js";
 import { parsePagination } from "../utils/responseHandlers.js";
 
 export const createOrder = async (req, res) => {
-  const { items, paymentMode, taxType, taxRate } = req.body;
-  const restaurantId = req.user.restaurantId;
+  try {
+    const {
+      clientOrderId,
+      items,
+      paymentMode,
+      taxType = "NONE",
+      taxRate = 0,
+    } = req.body;
 
-  let orderItems = [];
-  let subtotal = 0;
-  let totalProfit = 0;
-
-  for (const item of items) {
-    const product = await Product.findOne({
-      _id: item.productId,
-      restaurantId,
-    });
-
-    if (!product) {
-      return res.status(404).json({
+    if (!clientOrderId) {
+      return res.status(400).json({
         success: false,
-        msg: "Product not found",
+        msg: "clientOrderId is required",
       });
     }
 
-    const sellingPrice = product.sellingPrice;
-    const costPrice = product.costPrice || 0;
+    const restaurantId = req.user.restaurantId;
 
-    const itemTotal = sellingPrice * item.quantity;
-    const itemProfit = (sellingPrice - costPrice) * item.quantity;
+    // ✅ DUPLICATE CHECK (fast exit)
+    const existingOrder = await Order.findOne({
+      restaurantId,
+      clientOrderId,
+    });
 
-    subtotal += itemTotal;
-    totalProfit += itemProfit;
+    if (existingOrder) {
+      return res.status(200).json({
+        success: true,
+        msg: "Order already created",
+        data: existingOrder,
+      });
+    }
 
-    orderItems.push({
-      productId: product._id,
-      name: product.name,
-      quantity: item.quantity,
-      sellingPrice,
-      costPrice,
-      total: itemTotal,
-      profit: itemProfit,
+    let orderItems = [];
+    let subtotal = 0;
+
+    for (const item of items) {
+      const product = await Product.findOne({
+        _id: item.productId,
+        restaurantId,
+      });
+
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          msg: "Product not found",
+        });
+      }
+
+      const sellingPrice = product.sellingPrice;
+      const costPrice = product.costPrice || 0;
+
+      const itemTotal = sellingPrice * item.quantity;
+      const itemProfit = (sellingPrice - costPrice) * item.quantity;
+
+      subtotal += itemTotal;
+
+      orderItems.push({
+        productId: product._id,
+        name: product.name,
+        quantity: item.quantity,
+        sellingPrice,
+        costPrice,
+        total: itemTotal,
+        profit: itemProfit,
+      });
+    }
+
+    const taxAmount =
+      taxType === "NONE" ? 0 : (subtotal * taxRate) / 100;
+
+    const grandTotal = subtotal + taxAmount;
+
+    const invoiceNumber = await generateInvoiceNumber(restaurantId);
+
+    const order = await Order.create({
+      restaurantId,
+      clientOrderId,
+      invoiceNumber,
+      items: orderItems,
+      subtotal,
+      taxType,
+      taxRate,
+      taxAmount,
+      grandTotal,
+      paymentMode,
+      status: "PAID",
+      createdBy: req.user.userId,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: order,
+    });
+  } catch (err) {
+    // 🔁 Race condition safety
+    if (err.code === 11000) {
+      const order = await Order.findOne({
+        restaurantId: req.user.restaurantId,
+        clientOrderId: req.body.clientOrderId,
+      });
+
+      return res.status(200).json({
+        success: true,
+        msg: "Order already created",
+        data: order,
+      });
+    }
+
+    console.error("Create order error:", err);
+    res.status(500).json({
+      success: false,
+      msg: "Failed to create order",
     });
   }
-
-  const taxAmount = taxType === "NONE" ? 0 : (subtotal * taxRate) / 100;
-
-  const grandTotal = subtotal + taxAmount;
-
-  const invoiceNumber = await generateInvoiceNumber(restaurantId);
-
-  const order = await Order.create({
-    restaurantId,
-    invoiceNumber,
-    items: orderItems,
-    subtotal,
-    taxType,
-    taxRate,
-    taxAmount,
-    grandTotal,
-    paymentMode,
-    status: "PAID",
-    createdBy: req.user.userId,
-  });
-
-  res.status(201).json({
-    success: true,
-    data: order,
-  });
 };
 
 export const getAllOrders = async (req, res) => {
@@ -481,6 +531,152 @@ export const getTodayDashboard = async (req, res) => {
   }
 };
 
+export const cancelOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!["ADMIN", "SUPER_ADMIN"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        msg: "Permission denied",
+      });
+    }
+
+    const order = await Order.findOne({
+      _id: orderId,
+      restaurantId: req.user.restaurantId,
+      status: "PAID",
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        msg: "Order not found or already cancelled",
+      });
+    }
+
+    order.status = "CANCELLED";
+    order.cancelledBy = req.user.userId;
+    order.cancelledAt = new Date();
+    order.cancelRequested = false;
+
+    await order.save();
+
+    res.json({
+      success: true,
+      msg: "Order cancelled successfully",
+      data: order,
+    });
+  } catch (err) {
+    console.error("Cancel order error:", err);
+    res.status(500).json({
+      success: false,
+      msg: "Failed to cancel order",
+    });
+  }
+};
+
+export const requestCancelOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    if (req.user.role !== "CASHIER") {
+      return res.status(403).json({
+        success: false,
+        msg: "Only cashier can request cancel",
+      });
+    }
+
+    const order = await Order.findOne({
+      _id: orderId,
+      restaurantId: req.user.restaurantId,
+      status: "PAID",
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        msg: "Order not found or already processed",
+      });
+    }
+
+    if (order.cancelRequested) {
+      return res.json({
+        success: true,
+        msg: "Cancel request already sent",
+      });
+    }
+
+    order.cancelRequested = true;
+    order.cancelRequestedBy = req.user.userId;
+
+    await order.save();
+
+    res.json({
+      success: true,
+      msg: "Cancel request sent to admin",
+    });
+  } catch (err) {
+    console.error("Cancel request error:", err);
+    res.status(500).json({
+      success: false,
+      msg: "Failed to request cancellation",
+    });
+  }
+};
+
+export const getRecentOrders = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+
+    if (!restaurantId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    // limit safety
+    const limit = Math.min(
+      parseInt(req.query.limit, 10) || 5,
+      20
+    );
+
+    const orders = await Order.find({
+      restaurantId,
+      status: { $ne: "REFUNDED" }, // optional
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .select(
+        "invoiceNumber grandTotal paymentMode status cancelRequested createdAt items"
+      )
+      .lean();
+
+    // minimal transformation for POS
+    const formatted = orders.map((order) => ({
+      _id: order._id,
+      invoiceNumber: order.invoiceNumber,
+      amount: order.grandTotal,
+      paymentMode: order.paymentMode,
+      status: order.status,
+      cancelRequested: order.cancelRequested,
+      itemCount: order.items?.length || 0,
+      createdAt: order.createdAt,
+    }));
+
+    res.json({
+      success: true,
+      data: formatted,
+    });
+  } catch (error) {
+    console.error("Get recent orders error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch recent orders",
+    });
+  }
+};
 
 
 
