@@ -75,8 +75,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    const taxAmount =
-      taxType === "NONE" ? 0 : (subtotal * taxRate) / 100;
+    const taxAmount = taxType === "NONE" ? 0 : (subtotal * taxRate) / 100;
 
     const grandTotal = subtotal + taxAmount;
 
@@ -126,9 +125,7 @@ export const createOrder = async (req, res) => {
 
 export const getAllOrders = async (req, res) => {
   try {
-    const restaurantId = new mongoose.Types.ObjectId(
-      req.user.restaurantId
-    );
+    const restaurantId = new mongoose.Types.ObjectId(req.user.restaurantId);
 
     const { page, pageSize, skip } = parsePagination(req.query);
 
@@ -192,11 +189,7 @@ export const getAllOrders = async (req, res) => {
     // Query + Count in parallel
     // -------------------------
     const [orders, total] = await Promise.all([
-      Order.find(query)
-        .sort(sort)
-        .skip(skip)
-        .limit(pageSize)
-        .exec(),
+      Order.find(query).sort(sort).skip(skip).limit(pageSize).exec(),
 
       Order.countDocuments(query),
     ]);
@@ -388,9 +381,7 @@ export const getTodayDashboard = async (req, res) => {
       });
     }
 
-    const restaurantId = new mongoose.Types.ObjectId(
-      req.user.restaurantId
-    );
+    const restaurantId = new mongoose.Types.ObjectId(req.user.restaurantId);
 
     // -------------------------
     // UTC-safe today range
@@ -402,7 +393,10 @@ export const getTodayDashboard = async (req, res) => {
         now.getUTCFullYear(),
         now.getUTCMonth(),
         now.getUTCDate(),
-        0, 0, 0, 0
+        0,
+        0,
+        0,
+        0
       )
     );
 
@@ -411,7 +405,10 @@ export const getTodayDashboard = async (req, res) => {
         now.getUTCFullYear(),
         now.getUTCMonth(),
         now.getUTCDate(),
-        23, 59, 59, 999
+        23,
+        59,
+        59,
+        999
       )
     );
 
@@ -422,6 +419,7 @@ export const getTodayDashboard = async (req, res) => {
       {
         $match: {
           restaurantId,
+          status: "PAID",
           createdAt: {
             $gte: startOfDayUTC,
             $lte: endOfDayUTC,
@@ -438,11 +436,7 @@ export const getTodayDashboard = async (req, res) => {
                 totalOrders: { $sum: 1 },
                 totalSales: {
                   $sum: {
-                    $cond: [
-                      { $isNumber: "$grandTotal" },
-                      "$grandTotal",
-                      0,
-                    ],
+                    $cond: [{ $isNumber: "$grandTotal" }, "$grandTotal", 0],
                   },
                 },
               },
@@ -465,11 +459,7 @@ export const getTodayDashboard = async (req, res) => {
                 },
                 totalProfit: {
                   $sum: {
-                    $cond: [
-                      { $isNumber: "$items.profit" },
-                      "$items.profit",
-                      0,
-                    ],
+                    $cond: [{ $isNumber: "$items.profit" }, "$items.profit", 0],
                   },
                 },
               },
@@ -521,7 +511,6 @@ export const getTodayDashboard = async (req, res) => {
         totalProfit: 0,
       },
     });
-
   } catch (err) {
     console.error("Dashboard Error:", err);
     res.status(500).json({
@@ -637,10 +626,7 @@ export const getRecentOrders = async (req, res) => {
     }
 
     // limit safety
-    const limit = Math.min(
-      parseInt(req.query.limit, 10) || 5,
-      20
-    );
+    const limit = Math.min(parseInt(req.query.limit, 10) || 5, 20);
 
     const orders = await Order.find({
       restaurantId,
@@ -677,7 +663,6 @@ export const getRecentOrders = async (req, res) => {
     });
   }
 };
-
 
 export const getPaymentModeSales = async (req, res) => {
   try {
