@@ -63,6 +63,19 @@ export const validateProductId = [
   handleValidationErrors,
 ];
 
+export const validateGetProductsByCategory = [
+  param("categoryId")
+    .isMongoId()
+    .withMessage("Invalid category ID"),
+
+  query("activeOnly")
+    .optional()
+    .isIn(["true", "false"])
+    .withMessage("activeOnly must be true or false"),
+
+  handleValidationErrors,
+];
+
 function handleValidationErrors(req, res, next) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {

@@ -5,13 +5,15 @@ import {
   getProductById,
   updateProduct,
   deleteProduct,
-  getActiveProducts
+  getActiveProducts,
+  getProductsByCategory
 } from "../controllers/productController.js";
 
 import {
   validateCreateProduct,
   validateUpdateProduct,
   validateProductId,
+  validateGetProductsByCategory,
 } from "../validators/productValidator.js";
 
 import { authenticateJWT } from "../middleware/authMiddleware.js";
@@ -42,6 +44,10 @@ productRouter
 // Soft delete
 productRouter.route("/:productId").delete(validateProductId, deleteProduct);
 
-
+productRouter.route("/get-products-by-category/:categoryId").get(
+  authenticateJWT,
+  validateGetProductsByCategory,
+  getProductsByCategory
+);
 
 export default productRouter;

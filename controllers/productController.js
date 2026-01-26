@@ -167,3 +167,27 @@ export const getActiveProducts = async (req, res) => {
     data: products,
   });
 };
+
+export const getProductsByCategory = async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+
+    const products = await Product.find({
+      categoryId,
+      isActive: true,
+    }).sort({ name: 1 });
+
+    // ✅ NEVER return "not found" for list
+    return res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products,
+    });
+  } catch (error) {
+    console.error("Get products by category error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch products",
+    });
+  }
+};
