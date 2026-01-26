@@ -13,6 +13,7 @@ import {
   requestCancelOrder,
   getRecentOrders,
   getPaymentModeSales,
+  rejectCancelRequest,
 } from "../controllers/orderController.js";
 import {
   validateCreateOrder,
@@ -70,5 +71,13 @@ OrderRouter.route("/payment-mode-sales").get(
   authenticateJWT,
   getPaymentModeSales
 );
+
+OrderRouter.route(
+  "/:orderId/reject-cancel").patch(
+  authenticateJWT,
+  rejectCancelRequest
+);
+
+
 
 export default OrderRouter;

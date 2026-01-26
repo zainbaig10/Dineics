@@ -727,3 +727,42 @@ export const getPaymentModeSales = async (req, res) => {
     });
   }
 };
+
+export const rejectCancelRequest = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const adminId = req.user._id;
+
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (!order.cancelRequested) {
+      return res.status(400).json({
+        success: false,
+        message: "No cancel request to reject",
+      });
+    }
+
+    order.cancelRequested = false;
+    order.cancelRequestedBy = null;
+
+    await order.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Cancel request rejected successfully",
+    });
+  } catch (error) {
+    console.error("Reject cancel error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
