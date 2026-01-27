@@ -54,7 +54,7 @@ const orderSchema = new mongoose.Schema(
 
     paymentMode: {
       type: String,
-      enum: ["CASH", "CARD", "UPI"],
+      enum: ["CASH", "CARD", "UPI", "MADA"],
       required: true,
     },
 
@@ -77,6 +77,10 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
     },
 
+    cancelRequestedAt: {
+      type: Date,
+    },
+    
     cancelledBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -93,9 +97,6 @@ const orderSchema = new mongoose.Schema(
 );
 
 // 🔐 No duplicate orders per restaurant
-orderSchema.index(
-  { restaurantId: 1, clientOrderId: 1 },
-  { unique: true }
-);
+orderSchema.index({ restaurantId: 1, clientOrderId: 1 }, { unique: true });
 
 export default mongoose.model("Order", orderSchema);

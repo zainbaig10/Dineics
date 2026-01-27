@@ -140,9 +140,7 @@ export const getAllOrders = async (req, res) => {
       sortOrder = "desc",
     } = req.query;
 
-    const query = {
-      restaurantId,
-    };
+    const query = { restaurantId };
 
     // -------------------------
     // Status & Payment filters
@@ -151,13 +149,13 @@ export const getAllOrders = async (req, res) => {
     if (paymentMode) query.paymentMode = paymentMode;
 
     // -------------------------
-    // Date filters (createdAt)
+    // Date filters
     // -------------------------
     if (date) {
-      const day = new Date(`${date}T00:00:00.000Z`);
-      const nextDay = new Date(day.getTime() + 86400000);
+      const dayStart = new Date(`${date}T00:00:00.000Z`);
+      const dayEnd = new Date(dayStart.getTime() + 86400000);
 
-      query.createdAt = { $gte: day, $lt: nextDay };
+      query.createdAt = { $gte: dayStart, $lt: dayEnd };
     } else if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) {
@@ -186,15 +184,25 @@ export const getAllOrders = async (req, res) => {
     };
 
     // -------------------------
-    // Query + Count in parallel
+    // Query + Count
     // -------------------------
     const [orders, total] = await Promise.all([
-      Order.find(query).sort(sort).skip(skip).limit(pageSize).exec(),
+      Order.find(query)
+        // 🔥 WHO requested cancel
+        .populate("cancelRequestedBy", "name role")
+        // 🔥 WHO cancelled (approved)
+        .populate("cancelledBy", "name role")
+        // 🔥 Optional: who created order
+        .populate("createdBy", "name role")
+        .sort(sort)
+        .skip(skip)
+        .limit(pageSize)
+        .exec(),
 
       Order.countDocuments(query),
     ]);
 
-    res.json({
+    return res.json({
       success: true,
       data: orders,
       pagination: {
@@ -206,7 +214,7 @@ export const getAllOrders = async (req, res) => {
     });
   } catch (err) {
     console.error("Get orders error:", err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch orders",
     });
@@ -569,10 +577,11 @@ export const requestCancelOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
 
+    // Only cashier can request cancel
     if (req.user.role !== "CASHIER") {
       return res.status(403).json({
         success: false,
-        msg: "Only cashier can request cancel",
+        message: "Only cashier can request cancel",
       });
     }
 
@@ -585,31 +594,33 @@ export const requestCancelOrder = async (req, res) => {
     if (!order) {
       return res.status(404).json({
         success: false,
-        msg: "Order not found or already processed",
+        message: "Order not found or already processed",
       });
     }
 
     if (order.cancelRequested) {
       return res.json({
         success: true,
-        msg: "Cancel request already sent",
+        message: "Cancel request already sent",
       });
     }
 
+    // ✅ REQUIRED FIELDS
     order.cancelRequested = true;
-    order.cancelRequestedBy = req.user.userId;
+    order.cancelRequestedBy = req.user._id; // 👈 FIXED
+    order.cancelRequestedAt = new Date();   // 👈 MISSING LINE
 
     await order.save();
 
-    res.json({
+    return res.json({
       success: true,
-      msg: "Cancel request sent to admin",
+      message: "Cancel request sent to admin",
     });
   } catch (err) {
     console.error("Cancel request error:", err);
     res.status(500).json({
       success: false,
-      msg: "Failed to request cancellation",
+      message: "Failed to request cancellation",
     });
   }
 };
@@ -694,6 +705,7 @@ export const getPaymentModeSales = async (req, res) => {
       CASH: 0,
       CARD: 0,
       UPI: 0,
+      MADA: 0,
     };
 
     stats.forEach((item) => {

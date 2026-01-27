@@ -25,7 +25,7 @@ export const validateCreateOrder = [
     .withMessage("Quantity must be at least 1"),
 
   body("paymentMode")
-    .isIn(["CASH", "CARD", "UPI"])
+    .isIn(["CASH", "CARD", "UPI", "MADA"])
     .withMessage("Invalid payment mode"),
 
   body("taxType")
