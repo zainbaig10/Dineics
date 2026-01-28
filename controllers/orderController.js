@@ -9,39 +9,26 @@ import { parsePagination } from "../utils/responseHandlers.js";
 
 export const createOrder = async (req, res) => {
   try {
-    const {
-      clientOrderId,
-      items,
-      paymentMode,
-      taxType = "NONE",
-      taxRate = 0,
-    } = req.body;
+    const { clientOrderId, items, paymentMode } = req.body;
 
-    if (!clientOrderId) {
-      return res.status(400).json({
-        success: false,
-        msg: "clientOrderId is required",
-      });
+    if (!req.user?.restaurantId) {
+      return res.status(401).json({ success: false, msg: "Unauthorized" });
     }
 
     const restaurantId = req.user.restaurantId;
 
-    // ✅ DUPLICATE CHECK (fast exit)
-    const existingOrder = await Order.findOne({
-      restaurantId,
-      clientOrderId,
-    });
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, msg: "Restaurant not found" });
+    }
 
+    const existingOrder = await Order.findOne({ restaurantId, clientOrderId });
     if (existingOrder) {
-      return res.status(200).json({
-        success: true,
-        msg: "Order already created",
-        data: existingOrder,
-      });
+      return res.status(200).json({ success: true, data: existingOrder });
     }
 
     let orderItems = [];
-    let subtotal = 0;
+    let itemsTotal = 0;
 
     for (const item of items) {
       const product = await Product.findOne({
@@ -52,74 +39,65 @@ export const createOrder = async (req, res) => {
       if (!product) {
         return res.status(404).json({
           success: false,
-          msg: "Product not found",
+          msg: `Product not found: ${item.productId}`,
         });
       }
 
-      const sellingPrice = product.sellingPrice;
-      const costPrice = product.costPrice || 0;
-
-      const itemTotal = sellingPrice * item.quantity;
-      const itemProfit = (sellingPrice - costPrice) * item.quantity;
-
-      subtotal += itemTotal;
+      const itemTotal = product.sellingPrice * item.quantity;
+      itemsTotal += itemTotal;
 
       orderItems.push({
         productId: product._id,
         name: product.name,
         quantity: item.quantity,
-        sellingPrice,
-        costPrice,
+        sellingPrice: product.sellingPrice,
+        costPrice: product.costPrice || 0,
         total: itemTotal,
-        profit: itemProfit,
+        profit:
+          (product.sellingPrice - (product.costPrice || 0)) * item.quantity,
       });
     }
 
-    const taxAmount = taxType === "NONE" ? 0 : (subtotal * taxRate) / 100;
+    let subtotal = itemsTotal;
+    let taxAmount = 0;
+
+    const taxConfig = restaurant.taxConfig;
+
+    // ✅ APPLY TAX ONLY IF ENABLED
+    if (taxConfig?.enabled === true) {
+      if (taxConfig.pricing === "EXCLUSIVE") {
+        taxAmount = (subtotal * taxConfig.rate) / 100;
+      } else {
+        taxAmount = (subtotal * taxConfig.rate) / (100 + taxConfig.rate);
+        subtotal -= taxAmount;
+      }
+    }
 
     const grandTotal = subtotal + taxAmount;
-
-    const invoiceNumber = await generateInvoiceNumber(restaurantId);
 
     const order = await Order.create({
       restaurantId,
       clientOrderId,
-      invoiceNumber,
+      invoiceNumber: await generateInvoiceNumber(restaurantId),
       items: orderItems,
       subtotal,
-      taxType,
-      taxRate,
-      taxAmount,
+      tax: {
+        enabled: taxConfig?.enabled === true,
+        taxType: taxConfig?.enabled ? taxConfig.type : null,
+        rate: taxConfig?.enabled ? taxConfig.rate : null,
+        inclusive:
+          taxConfig?.enabled ? taxConfig.pricing === "INCLUSIVE" : null,
+        amount: taxAmount,
+      },
       grandTotal,
       paymentMode,
-      status: "PAID",
       createdBy: req.user.userId,
     });
 
-    res.status(201).json({
-      success: true,
-      data: order,
-    });
+    res.status(201).json({ success: true, data: order });
   } catch (err) {
-    // 🔁 Race condition safety
-    if (err.code === 11000) {
-      const order = await Order.findOne({
-        restaurantId: req.user.restaurantId,
-        clientOrderId: req.body.clientOrderId,
-      });
-
-      return res.status(200).json({
-        success: true,
-        msg: "Order already created",
-        data: order,
-      });
-    }
-
-    console.error("Create order error:", err);
-    res.status(500).json({
-      success: false,
-      msg: "Failed to create order",
-    });
+    console.error("CREATE ORDER ERROR:", err);
+    res.status(500).json({ success: false, msg: err.message });
   }
 };
 

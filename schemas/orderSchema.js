@@ -9,7 +9,6 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
-    // 🔒 Idempotency key (from frontend)
     clientOrderId: {
       type: String,
       required: true,
@@ -18,15 +17,11 @@ const orderSchema = new mongoose.Schema(
     invoiceNumber: {
       type: String,
       required: true,
-      index: true,
     },
 
     items: [
       {
-        productId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Product",
-        },
+        productId: mongoose.Schema.Types.ObjectId,
         name: String,
         quantity: Number,
         sellingPrice: Number,
@@ -36,16 +31,19 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
-    subtotal: Number,
-
-    taxType: {
-      type: String,
-      enum: ["GST", "VAT", "NONE"],
-      default: "NONE",
+    subtotal: {
+      type: Number,
+      required: true,
     },
 
-    taxRate: Number,
-    taxAmount: Number,
+    // ✅ SNAPSHOT
+    tax: {
+      enabled: { type: Boolean, default: false },
+      taxType: { type: String }, // GST / VAT
+      rate: { type: Number },
+      inclusive: { type: Boolean },
+      amount: { type: Number, default: 0 },
+    },
 
     grandTotal: {
       type: Number,
@@ -62,41 +60,16 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: ["PAID", "CANCELLED", "REFUNDED", "PENDING"],
       default: "PAID",
-      index: true,
     },
-
-    // 👇 NEW (for cashier flow)
-    cancelRequested: {
-      type: Boolean,
-      default: false,
-      index: true,
-    },
-
-    cancelRequestedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-
-    cancelRequestedAt: {
-      type: Date,
-    },
-    
-    cancelledBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-
-    cancelledAt: Date,
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      required: true,
     },
   },
   { timestamps: true }
 );
 
-// 🔐 No duplicate orders per restaurant
 orderSchema.index({ restaurantId: 1, clientOrderId: 1 }, { unique: true });
 
 export default mongoose.model("Order", orderSchema);

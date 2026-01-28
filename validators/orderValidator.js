@@ -12,32 +12,10 @@ const handleErrors = (req, res, next) => {
 };
 
 export const validateCreateOrder = [
-  body("items").isArray({ min: 1 }).withMessage("Order items are required"),
-
-  body("items.*.productId")
-    .notEmpty()
-    .withMessage("Product ID is required")
-    .isMongoId()
-    .withMessage("Invalid product ID"),
-
-  body("items.*.quantity")
-    .isInt({ min: 1 })
-    .withMessage("Quantity must be at least 1"),
-
-  body("paymentMode")
-    .isIn(["CASH", "CARD", "UPI", "MADA"])
-    .withMessage("Invalid payment mode"),
-
-  body("taxType")
-    .optional()
-    .isIn(["GST", "VAT", "NONE"])
-    .withMessage("Invalid tax type"),
-
-  body("taxRate")
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage("Invalid tax rate"),
-
+  body("items").isArray({ min: 1 }),
+  body("items.*.productId").isMongoId(),
+  body("items.*.quantity").isInt({ min: 1 }),
+  body("paymentMode").isIn(["CASH", "CARD", "UPI", "MADA"]),
   handleErrors,
 ];
 

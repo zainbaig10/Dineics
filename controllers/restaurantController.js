@@ -11,14 +11,32 @@ export const createRestaurant = async (req, res, next) => {
   try {
     const { restaurant, admin } = req.body;
 
+    // 👇 Auto tax config based on country
+    let taxConfig = { enabled: false };
+
+    if (restaurant.country === "INDIA") {
+      taxConfig = {
+        enabled: true,
+        type: "GST",
+        rate: 5,
+        pricing: "EXCLUSIVE",
+      };
+    }
+
+    if (restaurant.country === "KSA") {
+      taxConfig = {
+        enabled: true,
+        type: "VAT",
+        rate: 15,
+        pricing: "INCLUSIVE",
+      };
+    }
+
     const [newRestaurant] = await Restaurant.create(
       [
         {
-          name: restaurant.name,
-          country: restaurant.country,
-          address: restaurant.address,
-          phone: restaurant.phone,
-          trn: restaurant.trn,
+          ...restaurant,
+          taxConfig,
         },
       ],
       { session }
@@ -37,7 +55,6 @@ export const createRestaurant = async (req, res, next) => {
       { session }
     );
 
-    // ✅ Auto-create settings (prefilled)
     await Settings.create(
       [
         {

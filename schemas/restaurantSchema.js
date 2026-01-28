@@ -1,4 +1,3 @@
-// models/Restaurant.js
 import mongoose from "mongoose";
 
 const restaurantSchema = new mongoose.Schema(
@@ -13,7 +12,7 @@ const restaurantSchema = new mongoose.Schema(
       type: String,
       enum: ["INDIA", "KSA"],
       required: true,
-      immutable: true, // 🔒 cannot be changed later
+      immutable: true,
     },
 
     trn: {
@@ -21,19 +20,35 @@ const restaurantSchema = new mongoose.Schema(
       trim: true,
     },
 
-    address: {
-      type: String,
-      trim: true,
-    },
-
-    phone: {
-      type: String,
-      trim: true,
-    },
+    address: String,
+    phone: String,
 
     isActive: {
       type: Boolean,
       default: true,
+    },
+
+    // ✅ TAX CONFIG (SOURCE OF TRUTH)
+    taxConfig: {
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+
+      type: {
+        type: String,
+        enum: ["GST", "VAT"],
+      },
+
+      rate: {
+        type: Number, // 5, 15 etc
+      },
+
+      pricing: {
+        type: String,
+        enum: ["INCLUSIVE", "EXCLUSIVE"],
+        default: "INCLUSIVE",
+      },
     },
   },
   { timestamps: true }
