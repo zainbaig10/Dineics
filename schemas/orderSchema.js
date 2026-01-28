@@ -36,7 +36,7 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
-    // ✅ SNAPSHOT
+    // ✅ TAX SNAPSHOT
     tax: {
       enabled: { type: Boolean, default: false },
       taxType: { type: String }, // GST / VAT
@@ -58,18 +58,45 @@ const orderSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["PAID", "CANCELLED", "REFUNDED", "PENDING"],
+      enum: ["PAID", "PENDING", "CANCEL_REQUESTED", "CANCELLED", "REFUNDED"],
       default: "PAID",
+      index: true,
+    },
+
+    // 🔥 Cancel workflow
+    cancelRequestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    cancelRequestedAt: {
+      type: Date,
+    },
+
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    cancelledAt: {
+      type: Date,
+    },
+
+    cancelReason: {
+      type: String,
+      trim: true,
     },
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
     },
   },
   { timestamps: true }
 );
 
+// Prevent duplicate orders per POS
 orderSchema.index({ restaurantId: 1, clientOrderId: 1 }, { unique: true });
 
 export default mongoose.model("Order", orderSchema);
