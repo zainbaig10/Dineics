@@ -36,10 +36,9 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
-    // ✅ TAX SNAPSHOT
     tax: {
       enabled: { type: Boolean, default: false },
-      taxType: { type: String }, // GST / VAT
+      taxType: { type: String },
       rate: { type: Number },
       inclusive: { type: Boolean },
       amount: { type: Number, default: 0 },
@@ -58,12 +57,18 @@ const orderSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["PAID", "PENDING", "CANCEL_REQUESTED", "CANCELLED", "REFUNDED"],
+      enum: ["PAID", "CANCELLED", "REFUNDED"],
       default: "PAID",
       index: true,
     },
 
-    // 🔥 Cancel workflow
+    // 🔥 CANCEL REQUEST WORKFLOW (NEW)
+    cancelRequested: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     cancelRequestedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -73,6 +78,7 @@ const orderSchema = new mongoose.Schema(
       type: Date,
     },
 
+    // 🔥 Final cancellation
     cancelledBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
