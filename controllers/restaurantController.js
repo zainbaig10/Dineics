@@ -11,37 +11,47 @@ export const createRestaurant = async (req, res, next) => {
   try {
     const { restaurant, admin } = req.body;
 
-    // 👇 Auto tax config based on country
+    // -----------------------------
+    // TAX CONFIG (OPT-IN ONLY)
+    // -----------------------------
     let taxConfig = { enabled: false };
 
-    if (restaurant.country === "INDIA") {
-      taxConfig = {
-        enabled: true,
-        type: "GST",
-        rate: 5,
-        pricing: "EXCLUSIVE",
-      };
+    if (restaurant.taxConfig?.enabled === true) {
+      if (restaurant.country === "INDIA") {
+        taxConfig = {
+          enabled: true,
+          type: "GST",
+          rate: restaurant.taxConfig.rate ?? 5,
+          pricing: restaurant.taxConfig.pricing ?? "EXCLUSIVE",
+        };
+      }
+
+      if (restaurant.country === "KSA") {
+        taxConfig = {
+          enabled: true,
+          type: "VAT",
+          rate: restaurant.taxConfig.rate ?? 15,
+          pricing: restaurant.taxConfig.pricing ?? "INCLUSIVE",
+        };
+      }
     }
 
-    if (restaurant.country === "KSA") {
-      taxConfig = {
-        enabled: true,
-        type: "VAT",
-        rate: 15,
-        pricing: "INCLUSIVE",
-      };
-    }
-
+    // -----------------------------
+    // CREATE RESTAURANT
+    // -----------------------------
     const [newRestaurant] = await Restaurant.create(
       [
         {
           ...restaurant,
-          taxConfig,
+          taxConfig, // 👈 single source of truth
         },
       ],
       { session }
     );
 
+    // -----------------------------
+    // CREATE ADMIN USER
+    // -----------------------------
     const [adminUser] = await User.create(
       [
         {
@@ -55,6 +65,9 @@ export const createRestaurant = async (req, res, next) => {
       { session }
     );
 
+    // -----------------------------
+    // CREATE SETTINGS
+    // -----------------------------
     await Settings.create(
       [
         {
@@ -69,11 +82,15 @@ export const createRestaurant = async (req, res, next) => {
 
     await session.commitTransaction();
 
+    // -----------------------------
+    // RESPONSE (IMPORTANT)
+    // -----------------------------
     res.status(201).json({
       success: true,
       data: {
         restaurantId: newRestaurant._id,
         adminId: adminUser._id,
+        taxConfig: newRestaurant.taxConfig, // 👈 VISIBILITY
       },
     });
   } catch (err) {
