@@ -614,12 +614,12 @@ export const getRecentOrders = async (req, res) => {
       });
     }
 
-    // limit safety
+    // 🔒 Safety limit (max 20)
     const limit = Math.min(parseInt(req.query.limit, 10) || 5, 20);
 
     const orders = await Order.find({
       restaurantId,
-      status: { $ne: "REFUNDED" }, // optional
+      status: { $ne: "REFUNDED" }, // exclude refunded
     })
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -628,7 +628,7 @@ export const getRecentOrders = async (req, res) => {
       )
       .lean();
 
-    // minimal transformation for POS
+    // 🔁 Transform for POS UI
     const formatted = orders.map((order) => ({
       _id: order._id,
       invoiceNumber: order.invoiceNumber,
@@ -636,17 +636,23 @@ export const getRecentOrders = async (req, res) => {
       paymentMode: order.paymentMode,
       status: order.status,
       cancelRequested: order.cancelRequested,
-      itemCount: order.items?.length || 0,
+
+      // ✅ FIX: sum of quantities, not unique items
+      itemCount: order.items?.reduce(
+        (sum, item) => sum + (item.quantity || 0),
+        0
+      ),
+
       createdAt: order.createdAt,
     }));
 
-    res.json({
+    return res.json({
       success: true,
       data: formatted,
     });
   } catch (error) {
     console.error("Get recent orders error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch recent orders",
     });
