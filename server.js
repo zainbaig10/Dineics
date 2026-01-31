@@ -18,29 +18,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ----------------------
-// CORS (SAFE + SIMPLE)
+// CORS (ALLOW ALL)
 // ----------------------
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "https://servex-pos.vercel.app",
-  "https://dineics.onrender.com"
-];
-
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow server-to-server / Postman
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.warn("❌ CORS blocked:", origin);
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
+    origin: "*",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -73,7 +55,7 @@ app.use("/api", routes);
 app.use(errorHandler);
 
 // ----------------------
-// Server Start (NO HTTPS HERE)
+// Server Start
 // ----------------------
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
