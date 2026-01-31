@@ -1,6 +1,9 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import fs from "fs";
+import http from "http";
+import https from "https";
 
 import connectDB from "./mongo.js";
 import routes from "./routes/index.js";
@@ -55,10 +58,24 @@ app.use("/api", routes);
 app.use(errorHandler);
 
 // ----------------------
-// Server Start
+// Server Start (HTTP / HTTPS)
 // ----------------------
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+const sslKeyPath = process.env.SSL_KEY_PATH;
+const sslCertPath = process.env.SSL_CERT_PATH;
+
+if (sslKeyPath && sslCertPath) {
+  const sslOptions = {
+    key: fs.readFileSync(sslKeyPath),
+    cert: fs.readFileSync(sslCertPath),
+  };
+
+  https.createServer(sslOptions, app).listen(PORT, () => {
+    console.log(`🔐 HTTPS Server running on port ${PORT}`);
+  });
+} else {
+  http.createServer(app).listen(PORT, () => {
+    console.log(`🚀 HTTP Server running on port ${PORT}`);
+  });
+}
 
 export default app;
