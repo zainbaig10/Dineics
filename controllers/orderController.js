@@ -127,22 +127,32 @@ export const getAllOrders = async (req, res) => {
     if (paymentMode) query.paymentMode = paymentMode;
 
     // -------------------------
-    // Date filters
+    // Date filters (LOCAL TIME SAFE)
     // -------------------------
     if (date) {
-      const dayStart = new Date(`${date}T00:00:00.000Z`);
-      const dayEnd = new Date(dayStart.getTime() + 86400000);
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
 
-      query.createdAt = { $gte: dayStart, $lt: dayEnd };
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      query.createdAt = {
+        $gte: dayStart,
+        $lte: dayEnd,
+      };
     } else if (startDate || endDate) {
       query.createdAt = {};
+
       if (startDate) {
-        query.createdAt.$gte = new Date(`${startDate}T00:00:00.000Z`);
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        query.createdAt.$gte = start;
       }
+
       if (endDate) {
-        query.createdAt.$lt = new Date(
-          new Date(`${endDate}T00:00:00.000Z`).getTime() + 86400000
-        );
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
       }
     }
 
@@ -157,6 +167,9 @@ export const getAllOrders = async (req, res) => {
       ];
     }
 
+    // -------------------------
+    // Sorting
+    // -------------------------
     const sort = {
       [sortField]: sortOrder === "asc" ? 1 : -1,
     };
@@ -166,11 +179,8 @@ export const getAllOrders = async (req, res) => {
     // -------------------------
     const [orders, total] = await Promise.all([
       Order.find(query)
-        // 🔥 WHO requested cancel
         .populate("cancelRequestedBy", "name role")
-        // 🔥 WHO cancelled (approved)
         .populate("cancelledBy", "name role")
-        // 🔥 Optional: who created order
         .populate("createdBy", "name role")
         .sort(sort)
         .skip(skip)
