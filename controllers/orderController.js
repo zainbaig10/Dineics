@@ -747,3 +747,37 @@ export const rejectCancelRequest = async (req, res) => {
     });
   }
 };
+
+export const getOrdersByCategory = async (req, res) => {
+  try {
+    const restaurantId = req.user.restaurantId;
+    const { categoryId } = req.params;
+
+    // 1. Get products in this category
+    const products = await Product.find(
+      { restaurantId, categoryId },
+      { _id: 1 }
+    );
+
+    const productIds = products.map(p => p._id);
+
+    // 2. Find orders containing those products
+    const orders = await Order.find({
+      restaurantId,
+      "items.productId": { $in: productIds },
+      status: "PAID",
+    })
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: orders.length,
+      data: orders,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};

@@ -28,22 +28,34 @@ const restaurantSchema = new mongoose.Schema(
       default: true,
     },
 
-    // ✅ TAX CONFIG (SOURCE OF TRUTH)
+    // 💰 PAYMENT CONFIG (ONLY INDIA USES UPI)
+    paymentConfig: {
+      upi: {
+        enabled: {
+          type: Boolean,
+          default: false,
+        },
+        upiId: {
+          type: String,
+          trim: true,
+        },
+        qrString: {
+          type: String, // full UPI QR payload
+        },
+      },
+    },
+
+    // 🧾 TAX CONFIG
     taxConfig: {
       enabled: {
         type: Boolean,
         default: false,
       },
-
       type: {
         type: String,
         enum: ["GST", "VAT"],
       },
-
-      rate: {
-        type: Number, // 5, 15 etc
-      },
-
+      rate: Number,
       pricing: {
         type: String,
         enum: ["INCLUSIVE", "EXCLUSIVE"],

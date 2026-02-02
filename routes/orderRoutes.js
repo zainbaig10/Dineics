@@ -14,6 +14,7 @@ import {
   getRecentOrders,
   getPaymentModeSales,
   rejectCancelRequest,
+  getOrdersByCategory,
 } from "../controllers/orderController.js";
 import {
   validateCreateOrder,
@@ -78,6 +79,9 @@ OrderRouter.route(
   rejectCancelRequest
 );
 
-
+OrderRouter.route("/:categoryId/getOrdersbyCategory").get(
+  authenticateJWT,
+  getOrdersByCategory
+)
 
 export default OrderRouter;

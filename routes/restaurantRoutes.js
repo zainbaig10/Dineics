@@ -1,6 +1,6 @@
 import express from "express";
 
-import { createRestaurant } from "../controllers/restaurantController.js";
+import { createRestaurant, getRestaurantUpiConfig, updateRestaurant } from "../controllers/restaurantController.js";
 import { validateCreateRestaurant } from "../validators/restaurantValidator.js";
 
 import {
@@ -18,5 +18,21 @@ restaurantRouter
     validateCreateRestaurant,
     createRestaurant
   );
+
+ restaurantRouter
+  .route("/update-restaurant")
+  .patch(
+    authenticateJWT,
+    authorizeRoles("ADMIN"),
+    updateRestaurant
+  ); 
+
+   restaurantRouter
+  .route("/get-upi")
+  .get(
+    authenticateJWT,
+    authorizeRoles("ADMIN"),
+    getRestaurantUpiConfig
+  ); 
 
 export default restaurantRouter;
