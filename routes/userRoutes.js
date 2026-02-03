@@ -6,6 +6,7 @@ import {
   validateCreateUser,
   validateResetPassword,
   validateChangePassword,
+  validateUpdateUser,
 } from "../validators/userValidator.js";
 
 import {
@@ -14,6 +15,7 @@ import {
   resetCashierPassword,
   changePassword,
   initSuperAdmin,
+  updateUser,
 } from "../controllers/userController.js";
 
 import {
@@ -38,5 +40,14 @@ userRouter
   .patch(authenticateJWT, validateChangePassword, changePassword);
 
 userRouter.route("/init-super-admin").post(initSuperAdmin);
+
+userRouter
+  .route("/:id/update-user")
+  .patch(
+    authenticateJWT,
+    authorizeRoles("ADMIN"),
+    validateUpdateUser,
+    updateUser
+  );
 
 export default userRouter;

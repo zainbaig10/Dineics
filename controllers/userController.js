@@ -182,3 +182,70 @@ export const initSuperAdmin = async (req, res) => {
     data: { id: user._id, email: user.email },
   });
 };
+
+export const updateUser = async (req, res) => {
+  try {
+    const { restaurantId, role: requesterRole } = req.user;
+    const { id } = req.params;
+
+    if (requesterRole !== "ADMIN") {
+      return res.status(403).json({
+        success: false,
+        msg: "Only admin can update users",
+      });
+    }
+
+    const user = await User.findOne({ _id: id, restaurantId });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        msg: "User not found",
+      });
+    }
+
+    // ❌ Never allow touching SUPER_ADMIN
+    if (user.role === "SUPER_ADMIN") {
+      return res.status(403).json({
+        success: false,
+        msg: "Cannot update super admin",
+      });
+    }
+
+    const { name, password, isActive } = req.body;
+
+    // -----------------------------
+    // ALLOWED UPDATES
+    // -----------------------------
+    if (name !== undefined) {
+      user.name = name.trim();
+    }
+
+    if (isActive !== undefined) {
+      user.isActive = isActive;
+    }
+
+    if (password) {
+      user.password = await bcrypt.hash(password, 10);
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      msg: "User updated successfully",
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+      },
+    });
+  } catch (err) {
+    console.error("Update user error:", err);
+    res.status(500).json({
+      success: false,
+      msg: err.message,
+    });
+  }
+};
