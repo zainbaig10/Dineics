@@ -12,17 +12,33 @@ export const createRestaurant = async (req, res, next) => {
     const { restaurant, admin } = req.body;
 
     // -----------------------------
-    // TAX CONFIG (OPT-IN ONLY)
+    // KSA → TRN REQUIRED
+    // -----------------------------
+    if (restaurant.country === "KSA" && !restaurant.trn) {
+      return res.status(400).json({
+        success: false,
+        msg: "VAT TRN is required for KSA restaurants",
+      });
+    }
+
+    // -----------------------------
+    // TAX CONFIG
     // -----------------------------
     let taxConfig = { enabled: false };
 
     if (restaurant.taxConfig?.enabled === true) {
+      const pricing = ["INCLUSIVE", "EXCLUSIVE"].includes(
+        restaurant.taxConfig.pricing
+      )
+        ? restaurant.taxConfig.pricing
+        : undefined;
+
       if (restaurant.country === "INDIA") {
         taxConfig = {
           enabled: true,
           type: "GST",
           rate: restaurant.taxConfig.rate ?? 5,
-          pricing: restaurant.taxConfig.pricing ?? "EXCLUSIVE",
+          pricing: pricing ?? "EXCLUSIVE",
         };
       }
 
@@ -31,7 +47,7 @@ export const createRestaurant = async (req, res, next) => {
           enabled: true,
           type: "VAT",
           rate: restaurant.taxConfig.rate ?? 15,
-          pricing: restaurant.taxConfig.pricing ?? "INCLUSIVE",
+          pricing: pricing ?? "INCLUSIVE",
         };
       }
     }
@@ -45,11 +61,20 @@ export const createRestaurant = async (req, res, next) => {
       restaurant.country === "INDIA" &&
       restaurant.paymentConfig?.upi?.enabled === true
     ) {
+      const { upiId, qrString } = restaurant.paymentConfig.upi;
+
+      if (!upiId || !qrString) {
+        return res.status(400).json({
+          success: false,
+          msg: "UPI ID and QR string are required when UPI is enabled",
+        });
+      }
+
       paymentConfig = {
         upi: {
           enabled: true,
-          upiId: restaurant.paymentConfig.upi.upiId,
-          qrString: restaurant.paymentConfig.upi.qrString,
+          upiId,
+          qrString,
         },
       };
     }
@@ -66,8 +91,8 @@ export const createRestaurant = async (req, res, next) => {
           address: restaurant.address,
           phone: restaurant.phone,
           isActive: true,
-          taxConfig,        // 👈 SAME AS OLD
-          paymentConfig,    // 👈 SAFE ADDITION
+          taxConfig,
+          paymentConfig,
         },
       ],
       { session }
@@ -108,10 +133,7 @@ export const createRestaurant = async (req, res, next) => {
 
     await session.commitTransaction();
 
-    // -----------------------------
-    // RESPONSE
-    // -----------------------------
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: {
         restaurantId: newRestaurant._id,
@@ -128,7 +150,6 @@ export const createRestaurant = async (req, res, next) => {
   }
 };
 
-
 export const updateRestaurant = async (req, res) => {
   try {
     const restaurantId = req.user.restaurantId;
@@ -140,12 +161,7 @@ export const updateRestaurant = async (req, res) => {
       });
     }
 
-    const restaurant = await Restaurant.findByIdAndUpdate(
-      restaurantId,
-      { $set: req.body },
-      { new: true, runValidators: true }
-    );
-
+    const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) {
       return res.status(404).json({
         success: false,
@@ -153,11 +169,111 @@ export const updateRestaurant = async (req, res) => {
       });
     }
 
+    const {
+      name,
+      address,
+      phone,
+      trn,
+      taxConfig,
+      paymentConfig,
+      isActive,
+    } = req.body;
+
+    // -----------------------------
+    // BASIC FIELDS
+    // -----------------------------
+    if (name !== undefined) restaurant.name = name.trim();
+    if (address !== undefined) restaurant.address = address;
+    if (phone !== undefined) restaurant.phone = phone;
+    if (isActive !== undefined) restaurant.isActive = isActive;
+
+    // -----------------------------
+    // TAX CONFIG (STRICT)
+    // -----------------------------
+    if (taxConfig) {
+      if (taxConfig.enabled === true) {
+        if (restaurant.country === "INDIA") {
+          restaurant.taxConfig = {
+            enabled: true,
+            type: "GST",
+            rate: taxConfig.rate ?? 5,
+            pricing: taxConfig.pricing ?? "EXCLUSIVE",
+          };
+        }
+
+        if (restaurant.country === "KSA") {
+          if (!trn && !restaurant.trn) {
+            return res.status(400).json({
+              success: false,
+              msg: "VAT TRN is required to enable VAT in KSA",
+            });
+          }
+
+          restaurant.taxConfig = {
+            enabled: true,
+            type: "VAT",
+            rate: taxConfig.rate ?? 15,
+            pricing: taxConfig.pricing ?? "INCLUSIVE",
+          };
+        }
+      } else {
+        // disable tax
+        restaurant.taxConfig = { enabled: false };
+      }
+    }
+
+    // -----------------------------
+    // TRN UPDATE (KSA ONLY)
+    // -----------------------------
+    if (trn !== undefined) {
+      if (restaurant.country !== "KSA") {
+        return res.status(400).json({
+          success: false,
+          msg: "TRN is allowed only for KSA restaurants",
+        });
+      }
+      restaurant.trn = trn;
+    }
+
+    // -----------------------------
+    // PAYMENT CONFIG (UPI → INDIA ONLY)
+    // -----------------------------
+    if (paymentConfig?.upi) {
+      if (restaurant.country !== "INDIA") {
+        return res.status(400).json({
+          success: false,
+          msg: "UPI is allowed only for INDIA restaurants",
+        });
+      }
+
+      if (paymentConfig.upi.enabled === true) {
+        const { upiId, qrString } = paymentConfig.upi;
+
+        if (!upiId || !qrString) {
+          return res.status(400).json({
+            success: false,
+            msg: "UPI ID and QR string are required",
+          });
+        }
+
+        restaurant.paymentConfig.upi = {
+          enabled: true,
+          upiId,
+          qrString,
+        };
+      } else {
+        restaurant.paymentConfig.upi = { enabled: false };
+      }
+    }
+
+    await restaurant.save();
+
     res.json({
       success: true,
       data: restaurant,
     });
   } catch (err) {
+    console.error("Update restaurant error:", err);
     res.status(500).json({
       success: false,
       msg: err.message,
@@ -176,10 +292,13 @@ export const getRestaurantUpiConfig = async (req, res) => {
       });
     }
 
-    const restaurant = await Restaurant.findById(restaurantId, {
-      country: 1,
-      paymentConfig: 1,
-    });
+    const restaurant = await Restaurant.findById(
+      restaurantId,
+      {
+        country: 1,
+        paymentConfig: 1,
+      }
+    );
 
     if (!restaurant) {
       return res.status(404).json({
@@ -210,3 +329,4 @@ export const getRestaurantUpiConfig = async (req, res) => {
     next(err);
   }
 };
+

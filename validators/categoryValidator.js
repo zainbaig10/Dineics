@@ -8,7 +8,13 @@ export const validateCreateCategory = [
     .withMessage("Category name is required")
     .isLength({ max: 50 })
     .withMessage("Category name too long"),
+
+  body("color")
+    .optional()
+    .matches(/^#([0-9A-Fa-f]{6})$/)
+    .withMessage("Invalid color hex code"),
 ];
+
 
 export const validateUpdateCategory = [
   body("name")
@@ -18,6 +24,11 @@ export const validateUpdateCategory = [
     .withMessage("Category name cannot be empty")
     .isLength({ max: 50 })
     .withMessage("Category name too long"),
+
+  body("color")
+    .optional()
+    .matches(/^#([0-9A-Fa-f]{6})$/)
+    .withMessage("Invalid color hex code"),
 ];
 
 

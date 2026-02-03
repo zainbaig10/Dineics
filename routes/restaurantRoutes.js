@@ -1,7 +1,7 @@
 import express from "express";
 
 import { createRestaurant, getRestaurantUpiConfig, updateRestaurant } from "../controllers/restaurantController.js";
-import { validateCreateRestaurant } from "../validators/restaurantValidator.js";
+import { validateCreateRestaurant, validateUpdateRestaurant } from "../validators/restaurantValidator.js";
 
 import {
   authenticateJWT,
@@ -24,6 +24,7 @@ restaurantRouter
   .patch(
     authenticateJWT,
     authorizeRoles("ADMIN"),
+    validateUpdateRestaurant,
     updateRestaurant
   ); 
 

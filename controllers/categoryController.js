@@ -4,7 +4,7 @@ import Category from "../schemas/categorySchema.js";
 export const createCategory = async (req, res, next) => {
   try {
     const { restaurantId } = req.user;
-    const { name } = req.body;
+    const { name, color } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({
@@ -16,6 +16,7 @@ export const createCategory = async (req, res, next) => {
     const category = await Category.create({
       restaurantId,
       name: name.trim(),
+      color: color || undefined, // let schema default apply
     });
 
     res.status(201).json({
@@ -23,7 +24,6 @@ export const createCategory = async (req, res, next) => {
       data: category,
     });
   } catch (err) {
-    // duplicate category error
     if (err.code === 11000) {
       return res.status(409).json({
         success: false,
@@ -63,11 +63,29 @@ export const updateCategory = async (req, res, next) => {
   try {
     const { restaurantId } = req.user;
     const { id } = req.params;
-    const { name } = req.body;
+    const { name, color } = req.body;
+
+    const update = {};
+
+    if (name !== undefined) {
+      update.name = name.trim();
+    }
+
+    if (color !== undefined) {
+      update.color = color;
+    }
+
+    // Nothing to update
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({
+        success: false,
+        msg: "No valid fields provided for update",
+      });
+    }
 
     const category = await Category.findOneAndUpdate(
       { _id: id, restaurantId },
-      { name: name.trim() },
+      update,
       { new: true, runValidators: true }
     );
 

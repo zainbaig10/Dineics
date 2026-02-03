@@ -1,4 +1,3 @@
-// models/Category.js
 import mongoose from "mongoose";
 
 const categorySchema = new mongoose.Schema(
@@ -14,6 +13,12 @@ const categorySchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+
+    color: {
+      type: String,
+      default: "#E5E7EB", // light gray fallback
+      match: /^#([0-9A-Fa-f]{6})$/, // hex validation
     },
 
     isActive: {
