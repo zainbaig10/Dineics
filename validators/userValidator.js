@@ -94,30 +94,20 @@ export const validateChangePassword = [
     .isLength({ min: 6 })
     .withMessage("Password must be at least 6 characters"),
 
-  body("confirmPassword")
-    .notEmpty()
-    .withMessage("Confirm password is required")
-    .custom((value, { req }) => {
-      if (!req.body.newPassword) {
-        throw new Error("New password is missing");
-      }
-      if (value !== req.body.newPassword) {
-        throw new Error("Passwords do not match");
-      }
-      return true;
-    }),
-
   (req, res, next) => {
     const errors = validationResult(req);
+
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
         errors: errors.array().map((e) => e.msg),
       });
     }
+
     next();
   },
 ];
+
 
 export const validateUpdateUser = [
   body("name")

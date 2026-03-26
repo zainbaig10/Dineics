@@ -2,6 +2,7 @@ import express from "express";
 import {
   createCategory,
   getCategories,
+  getPublicCategories,
   toggleCategoryStatus,
   updateCategory,
 } from "../controllers/categoryController.js";
@@ -46,5 +47,5 @@ categoryrouter
     validateCategoryStatus,
     toggleCategoryStatus
   );
-
+categoryrouter.route("/getPublicApis").get(authenticateJWT, getPublicCategories);
 export default categoryrouter;

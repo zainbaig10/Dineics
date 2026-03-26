@@ -139,4 +139,33 @@ export const toggleCategoryStatus = async (req, res, next) => {
   }
 };
 
+export const getPublicCategories = async (req, res, next) => {
+  try {
+    const { slug } = req.params;
 
+    // 1. Find business by slug
+    const business = await Business.findOne({ slug }).lean();
+
+    if (!business) {
+      return res.status(404).json({
+        success: false,
+        msg: "Business not found",
+      });
+    }
+
+    // 2. Get categories
+    const categories = await Category.find({
+      businessId: business._id,
+      isActive: true,
+    })
+      .sort({ name_en: 1 })
+      .lean();
+
+    res.json({
+      success: true,
+      data: categories,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
